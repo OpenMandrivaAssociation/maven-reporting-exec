@@ -1,0 +1,181 @@
+From 24e6e7924f028ff69da7d25547e2de1c58a3ecd1 Mon Sep 17 00:00:00 2001
+From: Mikolaj Izdebski <mizdebsk@redhat.com>
+Date: Wed, 24 Jul 2013 12:53:37 +0200
+Subject: [PATCH] Port to Maven 3.1.0, Eclipse Aether and Eclipse Sisu
+
+---
+ pom.xml                                            | 31 +++++-----------------
+ .../exec/DefaultMavenPluginManagerHelper.java      | 29 ++------------------
+ .../reporting/exec/DefaultMavenReportExecutor.java |  6 ++---
+ .../reporting/exec/MavenPluginManagerHelper.java   |  2 +-
+ .../exec/TestDefaultMavenReportExecutor.java       | 10 +++----
+ 5 files changed, 17 insertions(+), 61 deletions(-)
+
+diff --git a/pom.xml b/pom.xml
+index c9f3247..441377d 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -51,7 +51,7 @@
+   </distributionManagement>
+ 
+   <properties>
+-    <mavenVersion>3.0</mavenVersion>
++    <mavenVersion>3.1.0</mavenVersion>
+     <plexusVersion>1.5.4</plexusVersion>
+     <maven.site.path>shared-archives/maven-reporting-exec-LATEST</maven.site.path>
+   </properties>
+@@ -104,19 +104,6 @@
+       <artifactId>plexus-component-annotations</artifactId>
+     </dependency>
+ 
+-    <!-- Sonatype Aether for Maven 3.0.x -->
+-    <dependency>
+-      <groupId>org.sonatype.aether</groupId>
+-      <artifactId>aether-api</artifactId>
+-      <version>1.7</version>
+-      <optional>true</optional>
+-    </dependency>
+-    <dependency>
+-      <groupId>org.sonatype.aether</groupId>
+-      <artifactId>aether-util</artifactId>
+-      <version>1.7</version>
+-    </dependency>
+-
+     <!-- Eclipse Aether for Maven 3.1.x -->
+     <dependency>
+       <groupId>org.eclipse.aether</groupId>
+@@ -168,16 +155,10 @@
+       <scope>test</scope>
+     </dependency>
+     <dependency>
+-      <groupId>org.sonatype.aether</groupId>
++      <groupId>org.eclipse.aether</groupId>
+       <artifactId>aether-connector-wagon</artifactId>
+-      <version>1.7</version>
++      <version>0.9.0.M2</version>
+       <scope>test</scope>
+-      <exclusions>
+-        <exclusion>
+-          <groupId>org.codehaus.plexus</groupId>
+-          <artifactId>plexus-container-default</artifactId>
+-        </exclusion>
+-      </exclusions>
+     </dependency>
+     <dependency>
+       <groupId>org.apache.maven.wagon</groupId>
+@@ -217,9 +198,9 @@
+     </dependency>
+ 
+     <dependency>
+-      <groupId>org.sonatype.sisu</groupId>
+-      <artifactId>sisu-inject-plexus</artifactId>
+-      <version>2.2.0</version>
++      <groupId>org.eclipse.sisu</groupId>
++      <artifactId>org.eclipse.sisu.plexus</artifactId>
++      <version>0.0.0.M2a</version>
+       <scope>provided</scope>
+     </dependency>
+ 
+diff --git a/src/main/java/org/apache/maven/reporting/exec/DefaultMavenPluginManagerHelper.java b/src/main/java/org/apache/maven/reporting/exec/DefaultMavenPluginManagerHelper.java
+index 0fe9fca..2913bd6 100644
+--- a/src/main/java/org/apache/maven/reporting/exec/DefaultMavenPluginManagerHelper.java
++++ b/src/main/java/org/apache/maven/reporting/exec/DefaultMavenPluginManagerHelper.java
+@@ -34,7 +34,7 @@ import org.apache.maven.plugin.descriptor.PluginDescriptor;
+ import org.codehaus.plexus.component.annotations.Component;
+ import org.codehaus.plexus.component.annotations.Requirement;
+ import org.codehaus.plexus.logging.Logger;
+-import org.sonatype.aether.repository.RemoteRepository;
++import org.eclipse.aether.repository.RemoteRepository;
+ 
+ /**
+  * {@link MavenPluginManager} helper to deal with API changes between Maven 3.0.x and 3.1.x, ie switch from Sonatype Aether
+@@ -99,34 +99,9 @@ public class DefaultMavenPluginManagerHelper
+         }
+     }
+ 
+-    private boolean isEclipseAether()
+-    {
+-        if ( isEclipseAether == null )
+-        {
+-            try
+-            {
+-                Thread.currentThread().getContextClassLoader().loadClass( "org.sonatype.aether.graph.DependencyFilter" );
+-                isEclipseAether = false;
+-            }
+-            catch ( ClassNotFoundException e )
+-            {
+-                isEclipseAether = true;
+-            }
+-        }
+-
+-        return isEclipseAether.booleanValue();
+-    }
+-
+     private Object createExclusionsDependencyFilter( List<String> artifactIdsList )
+     {
+-        if ( isEclipseAether() )
+-        {
+-            return new org.eclipse.aether.util.filter.ExclusionsDependencyFilter( artifactIdsList );
+-        }
+-        else
+-        {
+-            return new org.sonatype.aether.util.filter.ExclusionsDependencyFilter( artifactIdsList );
+-        }
++        return new org.eclipse.aether.util.filter.ExclusionsDependencyFilter( artifactIdsList );
+     }
+ 
+     public PluginDescriptor getPluginDescriptor( Plugin plugin, List<RemoteRepository> repositories,
+diff --git a/src/main/java/org/apache/maven/reporting/exec/DefaultMavenReportExecutor.java b/src/main/java/org/apache/maven/reporting/exec/DefaultMavenReportExecutor.java
+index e8bba45..c1c4047 100644
+--- a/src/main/java/org/apache/maven/reporting/exec/DefaultMavenReportExecutor.java
++++ b/src/main/java/org/apache/maven/reporting/exec/DefaultMavenReportExecutor.java
+@@ -53,9 +53,9 @@ import org.codehaus.plexus.logging.Logger;
+ import org.apache.maven.shared.utils.StringUtils;
+ import org.codehaus.plexus.util.xml.Xpp3Dom;
+ import org.codehaus.plexus.util.xml.Xpp3DomUtils;
+-import org.sonatype.aether.RepositorySystemSession;
+-import org.sonatype.aether.graph.DependencyFilter;
+-import org.sonatype.aether.repository.RemoteRepository;
++import org.eclipse.aether.RepositorySystemSession;
++import org.eclipse.aether.graph.DependencyFilter;
++import org.eclipse.aether.repository.RemoteRepository;
+ 
+ /**
+  * <p>
+diff --git a/src/main/java/org/apache/maven/reporting/exec/MavenPluginManagerHelper.java b/src/main/java/org/apache/maven/reporting/exec/MavenPluginManagerHelper.java
+index 2d6bc97..e8868cd 100644
+--- a/src/main/java/org/apache/maven/reporting/exec/MavenPluginManagerHelper.java
++++ b/src/main/java/org/apache/maven/reporting/exec/MavenPluginManagerHelper.java
+@@ -29,7 +29,7 @@ import org.apache.maven.plugin.PluginContainerException;
+ import org.apache.maven.plugin.PluginDescriptorParsingException;
+ import org.apache.maven.plugin.PluginResolutionException;
+ import org.apache.maven.plugin.descriptor.PluginDescriptor;
+-import org.sonatype.aether.repository.RemoteRepository;
++import org.eclipse.aether.repository.RemoteRepository;
+ 
+ /**
+  * {@link MavenPluginManager} helper to deal with API changes between Maven 3.0.x and 3.1.x.
+diff --git a/src/test/java/org/apache/maven/reporting/exec/TestDefaultMavenReportExecutor.java b/src/test/java/org/apache/maven/reporting/exec/TestDefaultMavenReportExecutor.java
+index a6c37bf..adfe03a 100644
+--- a/src/test/java/org/apache/maven/reporting/exec/TestDefaultMavenReportExecutor.java
++++ b/src/test/java/org/apache/maven/reporting/exec/TestDefaultMavenReportExecutor.java
+@@ -44,11 +44,11 @@ import org.codehaus.plexus.PlexusTestCase;
+ import org.codehaus.plexus.classworlds.realm.ClassRealm;
+ import org.codehaus.plexus.component.repository.exception.ComponentLookupException;
+ import org.codehaus.plexus.logging.Logger;
+-import org.sonatype.aether.RepositorySystemSession;
+-import org.sonatype.aether.artifact.Artifact;
+-import org.sonatype.aether.repository.RemoteRepository;
+-import org.sonatype.aether.repository.WorkspaceReader;
+-import org.sonatype.aether.repository.WorkspaceRepository;
++import org.eclipse.aether.RepositorySystemSession;
++import org.eclipse.aether.artifact.Artifact;
++import org.eclipse.aether.repository.RemoteRepository;
++import org.eclipse.aether.repository.WorkspaceReader;
++import org.eclipse.aether.repository.WorkspaceRepository;
+ 
+ import java.io.File;
+ import java.util.Collections;
+-- 
+1.8.1.4
+
