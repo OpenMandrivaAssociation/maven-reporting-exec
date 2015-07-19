@@ -1,7 +1,7 @@
 %{?_javapackages_macros:%_javapackages_macros}
 Name:           maven-reporting-exec
 Version:        1.2
-Release:        2.1
+Release:        2.2
 Group:		Development/Java
 BuildArch:      noarch
 Summary:        Classes to manage report plugin executions with Maven 3
