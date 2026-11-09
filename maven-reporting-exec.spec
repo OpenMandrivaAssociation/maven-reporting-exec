@@ -1,149 +1,124 @@
-%{?_javapackages_macros:%_javapackages_macros}
-Name:           maven-reporting-exec
-Version:        1.2
-Release:        2.3
+Name:		maven-reporting-exec
+Version:	2.0.1
+Release:	1
+Summary:	Run Maven report plugins
 Group:		Development/Java
-BuildArch:      noarch
-Summary:        Classes to manage report plugin executions with Maven 3
+License:	Apache-2.0
+URL:		https://maven.apache.org/shared/maven-reporting-exec/
+Source0:	https://github.com/apache/maven-reporting-exec/archive/refs/tags/maven-reporting-exec-%{version}.tar.gz#/maven-reporting-exec-%{version}.tar.gz
+BuildArch:	noarch
+BuildRequires:	python
+# The maven RPM holds the class jars. maven-components owns the coordinates.
+BuildRequires:	maven
+BuildRequires:	maven-components >= 3.10.0
+BuildRequires:	java-current-devel
+BuildRequires:	mvn(org.apache.maven.reporting:maven-reporting-api)
+BuildRequires:	maven-reporting-api >= 1:4.0.0
+Requires:	maven-reporting-api >= 1:4.0.0
+BuildRequires:	mvn(org.apache.maven:maven-core)
+BuildRequires:	mvn(org.apache.maven:maven-model)
+BuildRequires:	mvn(org.apache.maven:maven-plugin-api)
+BuildRequires:	mvn(org.apache.maven:maven-artifact)
+BuildRequires:	mvn(org.codehaus.plexus:plexus-utils)
+BuildRequires:	plexus-utils >= 3.6.2
+Requires:	plexus-utils >= 3.6.2
+BuildRequires:	mvn(org.apache.maven.doxia:doxia-sink-api)
+BuildRequires:	doxia-sink-api >= 2.2.0
+Requires:	doxia-sink-api >= 2.2.0
+BuildRequires:	mvn(org.slf4j:slf4j-api)
+BuildRequires:	mvn(javax.inject:javax.inject)
+# javax.inject and jakarta-inject both provide this coordinate.
+BuildRequires:	javax.inject >= 1-2
+Requires:	javax.inject >= 1-2
+BuildRequires:	mvn(org.apache.maven.resolver:maven-resolver-api)
+BuildRequires:	mvn(org.apache.maven.resolver:maven-resolver-util)
+BuildRequires:	mvn(org.codehaus.plexus:plexus-classworlds)
+BuildRequires:	plexus-classworlds >= 2.8.0
+Requires:	plexus-classworlds >= 2.8.0
+BuildRequires:	mvn(org.eclipse.sisu:org.eclipse.sisu.plexus)
+BuildSystem:	maven
+BuildOption(install):	--file-name %{name}
 
-License:        ASL 2.0
-URL:            https://maven.apache.org/shared/maven-reporting-exec/
-Source0:        http://repo1.maven.org/maven2/org/apache/maven/reporting/%{name}/%{version}/%{name}-%{version}-source-release.zip
-
-BuildRequires:  maven-local
-BuildRequires:  mvn(com.google.guava:guava)
-BuildRequires:  mvn(junit:junit)
-BuildRequires:  mvn(org.apache.maven.doxia:doxia-site-renderer)
-BuildRequires:  mvn(org.apache.maven:maven-aether-provider)
-BuildRequires:  mvn(org.apache.maven:maven-artifact)
-BuildRequires:  mvn(org.apache.maven:maven-compat)
-BuildRequires:  mvn(org.apache.maven:maven-core)
-BuildRequires:  mvn(org.apache.maven:maven-embedder)
-BuildRequires:  mvn(org.apache.maven:maven-model)
-BuildRequires:  mvn(org.apache.maven:maven-plugin-api)
-BuildRequires:  mvn(org.apache.maven:maven-settings)
-BuildRequires:  mvn(org.apache.maven:maven-settings-builder)
-BuildRequires:  mvn(org.apache.maven.plugins:maven-invoker-plugin)
-BuildRequires:  mvn(org.apache.maven.plugin-testing:maven-plugin-testing-harness)
-BuildRequires:  mvn(org.apache.maven.reporting:maven-reporting-api)
-BuildRequires:  mvn(org.apache.maven.shared:maven-shared-components:pom:)
-BuildRequires:  mvn(org.apache.maven.shared:maven-shared-utils)
-BuildRequires:  mvn(org.apache.maven.wagon:wagon-http-lightweight)
-BuildRequires:  mvn(org.apache.velocity:velocity)
-BuildRequires:  mvn(org.codehaus.plexus:plexus-component-annotations)
-BuildRequires:  mvn(org.codehaus.plexus:plexus-component-metadata)
-BuildRequires:  mvn(org.codehaus.plexus:plexus-velocity)
-BuildRequires:  mvn(org.eclipse.aether:aether-api)
-BuildRequires:  mvn(org.eclipse.aether:aether-transport-wagon)
-BuildRequires:  mvn(org.eclipse.aether:aether-util)
-BuildRequires:  mvn(org.eclipse.sisu:org.eclipse.sisu.plexus)
-BuildRequires:  mvn(velocity:velocity)
-
-Patch0001:      0001-Port-to-Maven-3.1.0-Eclipse-Aether-and-Eclipse-Sisu.patch
-
-Requires:       java-headless
+Obsoletes:	maven-reporting-exec-javadoc < %{EVRD}
 
 %description
-Classes to manage report plugin executions with Maven 3. Contains classes for
-managing and configuring reports and their execution.
-
-%package javadoc
-Summary:        API documentation for %{name}
-
-%description javadoc
-The API documentation of %{name}.
-
-
+Loads a Maven report plugin and runs its report goals. 2.0.1 uses
+reporting API 4.0.0, Doxia sink API 2.2.0, and resolver 2.0.24.
+Xpp3Dom comes from plexus-utils 3.6.2. Tests are not run.
 
 %prep
-%setup -qn %{name}-%{version}
-%patch0001 -p1
+%autosetup -n maven-reporting-exec-maven-reporting-exec-%{version}
+rm -rf src/test src/it .github
+python - <<'PY'
+import xml.etree.ElementTree as ET
+NS = "http://maven.apache.org/POM/4.0.0"
+ET.register_namespace("", NS)
 
-# convert CR+LF to LF
-sed -i 's/\r//g' pom.xml src/main/java/org/apache/maven/reporting/exec/*
+def tag(name):
+    return "{" + NS + "}" + name
 
-%pom_remove_plugin org.apache.maven.plugins:maven-enforcer-plugin
+def add(parent, name, text):
+    node = ET.SubElement(parent, tag(name))
+    node.text = text
+    return node
 
-# Build against Maven 3.x, Eclipse Aether and Eclipse Sisu
-%pom_remove_dep org.sonatype.aether:aether-api
-%pom_remove_dep org.sonatype.aether:aether-util
-%pom_change_dep org.sonatype.aether:aether-connector-wagon org.eclipse.aether:aether-transport-wagon
-%pom_change_dep org.sonatype.sisu:sisu-inject-plexus org.eclipse.sisu:org.eclipse.sisu.plexus
-
-%build
-# Test are skipped because there are errors with PlexusLogger
-# More info possibly here:
-# https://docs.sonatype.org/display/AETHER/Using+Aether+in+Maven+Plugins?focusedCommentId=10485782#comment-10485782
-%mvn_build -f
-
-%install
-%mvn_install
+root = ET.Element(tag("project"))
+add(root, "modelVersion", "4.0.0")
+add(root, "groupId", "org.apache.maven.reporting")
+add(root, "artifactId", "maven-reporting-exec")
+add(root, "version", "%{version}")
+add(root, "name", "Apache Maven Reporting Executor")
+props = ET.SubElement(root, tag("properties"))
+add(props, "maven.compiler.release", "8")
+add(props, "project.build.sourceEncoding", "UTF-8")
+deps = ET.SubElement(root, tag("dependencies"))
+for group, artifact, version, scope in (
+    ("org.apache.maven.reporting", "maven-reporting-api", "4.0.0", ""),
+    ("org.apache.maven", "maven-core", "3.10.0", "provided"),
+    ("org.apache.maven", "maven-model", "3.10.0", "provided"),
+    ("org.apache.maven", "maven-plugin-api", "3.10.0", "provided"),
+    ("org.apache.maven", "maven-artifact", "3.10.0", "provided"),
+    ("org.codehaus.plexus", "plexus-utils", "3.6.2", ""),
+    ("org.apache.maven.doxia", "doxia-sink-api", "2.2.0", ""),
+    ("org.slf4j", "slf4j-api", "1.7.36", ""),
+    ("javax.inject", "javax.inject", "1", ""),
+    ("org.apache.maven.resolver", "maven-resolver-api", "2.0.24", ""),
+    ("org.apache.maven.resolver", "maven-resolver-util", "2.0.24", ""),
+    ("org.codehaus.plexus", "plexus-classworlds", "2.8.0", ""),
+    ("org.eclipse.sisu", "org.eclipse.sisu.plexus", "0.9.0.M3", ""),
+):
+    dep = ET.SubElement(deps, tag("dependency"))
+    add(dep, "groupId", group)
+    add(dep, "artifactId", artifact)
+    add(dep, "version", version)
+    if scope:
+        add(dep, "scope", scope)
+ET.ElementTree(root).write("pom.xml", encoding="utf-8", xml_declaration=True)
+PY
+# Sisu loads @Named classes from this index. The indexer plugin is not packaged.
+python - <<'PY'
+import re
+from pathlib import Path
+root = Path("src/main/java")
+names = []
+for path in sorted(root.rglob("*.java")):
+    text = path.read_text(encoding="utf-8", errors="replace")
+    text = re.sub(r"/\*.*?\*/", "", text, flags=re.S)
+    text = re.sub(r"//.*?$", "", text, flags=re.M)
+    match = re.search(r"\b(?:class|interface|enum)\s+([A-Za-z0-9_]+)", text)
+    if not match:
+        continue
+    if "@Named" not in text[:match.start()]:
+        continue
+    pkg = re.search(r"(?m)^package\s+([A-Za-z0-9_.]+)\s*;", text)
+    if not pkg:
+        continue
+    names.append(pkg.group(1) + "." + match.group(1))
+if names:
+    dest = Path("src/main/resources/META-INF/sisu")
+    dest.mkdir(parents=True, exist_ok=True)
+    (dest / "javax.inject.Named").write_text("\n".join(names) + "\n", encoding="utf-8")
+PY
 
 %files -f .mfiles
-%doc LICENSE NOTICE DEPENDENCIES
-
-%files javadoc -f .mfiles-javadoc
-%doc LICENSE NOTICE
-
-
-
-%changelog
-* Thu Jul 31 2014 Mikolaj Izdebski <mizdebsk@redhat.com> - 1.2-2
-- Fix javadoc package generation
-
-* Thu Jul 03 2014 Michal Srb <msrb@redhat.com> - 1.2-1
-- Update to upstream version 1.2
-
-* Sat Jun 07 2014 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.1-8
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_21_Mass_Rebuild
-
-* Tue Mar 04 2014 Stanislav Ochotnicky <sochotnicky@redhat.com> - 1.1-7
-- Use Requires: java-headless rebuild (#1067528)
-
-* Thu Oct  3 2013 Mikolaj Izdebski <mizdebsk@redhat.com> - 1.1-6
-- Update Aether to 0.9.0.M3
-- Add missing BuildRequires
-
-* Sat Aug 03 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.1-5
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_20_Mass_Rebuild
-
-* Wed Jul 24 2013 Mikolaj Izdebski <mizdebsk@redhat.com> - 1.1-4
-- Port to Maven 3.1.0, Eclipse Aether and Eclipse Sisu
-- Resolves: rhbz#985706
-
-* Mon Jun 10 2013 Stanislav Ochotnicky <sochotnicky@redhat.com> - 1.1-3
-- Remove unused source
-
-* Mon May 06 2013 Tomas Radej <tradej@redhat.com> - 1.1-2
-- Removed aether BR
-
-* Mon Apr 22 2013 Tomas Radej <tradej@redhat.com> - 1.1-1
-- Updated to latest upstream version
-- Building with maven-local
-
-* Thu Feb 14 2013 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.0.2-4
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_19_Mass_Rebuild
-
-* Wed Feb 06 2013 Java SIG <java-devel@lists.fedoraproject.org> - 1.0.2-3
-- Update for https://fedoraproject.org/wiki/Fedora_19_Maven_Rebuild
-- Replace maven BuildRequires with maven-local
-
-* Thu Jul 19 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.0.2-2
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_18_Mass_Rebuild
-
-* Thu Apr 26 2012 Tomas Radej <tradej@redhat.com> - 1.0.2-1
-- Updated to latest upstream version
-
-* Fri Jan 13 2012 Fedora Release Engineering <rel-eng@lists.fedoraproject.org> - 1.0.1-4
-- Rebuilt for https://fedoraproject.org/wiki/Fedora_17_Mass_Rebuild
-
-* Fri Aug 12 2011 tradej <tradej@redhat.com> 1.0.1-3
-- Added dist macro to release
-
-* Thu Aug 11 2011 tradej <tradej@redhat.com> 1.0.1-2
-- Changed BuildArch to noarch
-
-* Wed Aug 10 2011 tradej <tradej@redhat.com> 1.0.1-1
-- Initial release (thanks to akurtakov, jcapik and the GULaG team for help)
-
-
+%doc LICENSE README.md

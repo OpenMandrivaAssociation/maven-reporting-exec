@@ -1,3 +1,5 @@
 sources:
+  maven-reporting-exec-2.0.1.tar.gz: 59f8552a50ddfa0443cd9e511ff8d85589975670
+removed_sources:
   maven-reporting-exec-1.1-source-release.zip: a9b2b337d6436683303d2895f3ab7fb761150f53
   maven-reporting-exec-1.2-source-release.zip: dac6340e288c5f8b7fdca0cac96a42648bfba2dd
